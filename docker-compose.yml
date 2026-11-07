@@ -1,0 +1,56 @@
+# Moto Service — production stack.
+#   cp .env.example .env   # fill in values
+#   docker compose up -d --build
+#
+# Backup (add to VPS crontab, e.g. daily at 03:00):
+#   0 3 * * * cd /path/to/moto-service && docker compose exec -T db pg_dump -U moto moto | gzip > backups/moto-$(date +\%F).sql.gz
+# Restore:
+#   gunzip -c backups/moto-YYYY-MM-DD.sql.gz | docker compose exec -T db psql -U moto moto
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: moto
+      POSTGRES_DB: moto
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moto"]
+      interval: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:5432:5432"   # local-only, for dev tools / backups
+
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://moto:${POSTGRES_PASSWORD}@db:5432/moto
+      SECURE_COOKIE: ${SECURE_COOKIE:-1}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"   # local-only; Caddy is the public entry
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - app
+    profiles: ["prod"]
+
+volumes:
+  pgdata:
+  caddy_data:

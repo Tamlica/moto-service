@@ -1,0 +1,10 @@
+{
+  "name": "Moto Service",
+  "short_name": "Moto",
+  "description": "Track motorcycle service by km and date.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fcfcfd",
+  "theme_color": "#fcfcfd",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
